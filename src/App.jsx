@@ -23,7 +23,7 @@ export default function App() {
           .from("Photos")
           .getPublicUrl(file.name);
 
-        return {
+        return {a
           name: file.name,
           url: urlData.publicUrl,
         };

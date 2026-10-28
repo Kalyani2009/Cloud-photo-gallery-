@@ -1,97 +1,136 @@
-import { useEffect, useState } from "react";
-import { supabase } from "./supabase";
-import "./index.css";
+import React, { useState, useEffect } from "react";
+import supabase from "./supabase";
+import "./App.css";
 
-export default function App() {
+function App() {
+  const [file, setFile] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const loadPhotos = async () => {
+  const Photos= "photos";
+
+  // Load uploaded photos
+  const fetchPhotos = async () => {
     const { data, error } = await supabase.storage
       .from("Photos")
-      .list("", { sortBy: { column: "created_at", order: "desc" } });
+      .list("", {
+        limit: 100,
+        sortBy: { column: "created_at", order: "desc" },
+      });
 
     if (error) {
-      console.error("Load error:", error.message);
+      setMessage("Unable to load photos: " + error.message);
       return;
     }
 
-    const photoList = (data || [])
-      .filter((file) => file.name)
-      .map((file) => {
-        const { data: urlData } = supabase.storage
-          .from("Photos")
-          .getPublicUrl(file.name);
+    const imageFiles = (data || []).filter(
+      (item) => item.name && item.id
+    );
 
-        return {a
-          name: file.name,
-          url: urlData.publicUrl,
-        };
-      });
+    const photoList = imageFiles.map((item) => {
+      const { data: urlData } = supabase.storage
+        .from("Photos")
+        .getPublicUrl(item.name);
+
+      return {
+        name: item.name,
+        url: urlData.publicUrl,
+      };
+    });
 
     setPhotos(photoList);
   };
 
   useEffect(() => {
-    loadPhotos();
+    fetchPhotos();
   }, []);
 
-  const uploadPhoto = async (event) => {
-    const file = event.target.files?.[0];
+  // Upload a photo
+  const handleUpload = async () => {
+    if (!file) {
+      setMessage("Please select a photo first.");
+      return;
+    }
 
-    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setMessage("Please select a valid image file.");
+      return;
+    }
 
     setLoading(true);
+    setMessage("");
 
-    try {
-      const filePath = `${Date.now()}-${file.name}`;
+    const filePath = `${Date.now()}-${file.name.replace(
+      /[^a-zA-Z0-9._-]/g,
+      "_"
+    )}`;
 
-      const { error } = await supabase.storage
-        .from("Photos")
-        .upload(filePath, file);
+    const { error } = await supabase.storage
+      .from("Photos")
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type,
+      });
 
-      if (error) {
-        alert("Upload failed: " + error.message);
-        console.error(error);
-        return;
-      }
+    setLoading(false);
 
-      alert("Photo uploaded successfully!");
-      await loadPhotos();
-    } catch (error) {
-      alert("Error: " + error.message);
-      console.error(error);
-    } finally {
-      setLoading(false);
-      event.target.value = "";
+    if (error) {
+      setMessage("Upload failed: " + error.message);
+      return;
     }
+
+    setMessage("Photo uploaded successfully!");
+
+    setFile(null);
+
+    const input = document.getElementById("photo-input");
+    if (input) input.value = "";
+
+    await fetchPhotos();
   };
 
   return (
-    <main>
-      <h1>Cloud Photo Gallery</h1>
-      <p>Upload and view your photos stored in Supabase.</p>
+    <div className="app">
+      <h1>☁️ Cloud Photo Gallery</h1>
 
-      <input
-        type="file"
-        accept="image/*"
-        onChange={uploadPhoto}
-        disabled={loading}
-      />
+      <p>Upload and view your photos using Supabase Storage.</p>
 
-      {loading && <p>Uploading photo...</p>}
+      <div className="upload-box">
+        <input
+          id="photo-input"
+          type="file"
+          accept="image/*"
+          onChange={(event) => setFile(event.target.files?.[0] || null)}
+        />
 
-      <div className="gallery">
-        {photos.map((photo) => (
-          <div key={photo.name} className="photo-card">
-            <img src={photo.url} alt={photo.name} />
-          </div>
-        ))}
+        <button onClick={handleUpload} disabled={loading}>
+          {loading ? "Uploading..." : "Upload Photo"}
+        </button>
       </div>
-    </main>
+
+      {message && <p>{message}</p>}
+
+      <h2>My Photos</h2>
+
+      {photos.length === 0 ? (
+        <p>No photos uploaded yet.</p>
+      ) : (
+        <div className="photo-grid">
+          {photos.map((photo) => (
+            <div className="photo-card" key={photo.name}>
+              <img src={photo.url} alt={photo.name} />
+              <p>{photo.name}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
+export default App;
 
 
 
@@ -100,3 +139,10 @@ export default function App() {
 
 
 
+
+
+
+
+
+
+      

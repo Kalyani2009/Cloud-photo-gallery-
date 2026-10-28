@@ -1,23 +1,96 @@
-const uploadPhoto = async (event) => {
-  const file = event.target.files[0];
+import { useEffect, useState } from "react";
+import { supabase } from "./supabase";
+import "./index.css";
 
-  if (!file) return;
+export default function App() {
+  const [photos, setPhotos] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const filePath = `${Date.now()}-${file.name}`;
+  const loadPhotos = async () => {
+    const { data, error } = await supabase.storage
+      .from("Photos")
+      .list("", { sortBy: { column: "created_at", order: "desc" } });
 
-  const { data, error } = await supabase.storage
-    .from("Photos")
-    .upload(filePath, file);
+    if (error) {
+      console.error("Load error:", error.message);
+      return;
+    }
 
-  if (error) {
-    alert("Upload failed: " + error.message);
-    console.error(error);
-    return;
-  }
+    const photoList = (data || [])
+      .filter((file) => file.name)
+      .map((file) => {
+        const { data: urlData } = supabase.storage
+          .from("Photos")
+          .getPublicUrl(file.name);
 
-  alert("Photo uploaded successfully!");
-  console.log(data);
-};
+        return {
+          name: file.name,
+          url: urlData.publicUrl,
+        };
+      });
+
+    setPhotos(photoList);
+  };
+
+  useEffect(() => {
+    loadPhotos();
+  }, []);
+
+  const uploadPhoto = async (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    setLoading(true);
+
+    try {
+      const filePath = `${Date.now()}-${file.name}`;
+
+      const { error } = await supabase.storage
+        .from("Photos")
+        .upload(filePath, file);
+
+      if (error) {
+        alert("Upload failed: " + error.message);
+        console.error(error);
+        return;
+      }
+
+      alert("Photo uploaded successfully!");
+      await loadPhotos();
+    } catch (error) {
+      alert("Error: " + error.message);
+      console.error(error);
+    } finally {
+      setLoading(false);
+      event.target.value = "";
+    }
+  };
+
+  return (
+    <main>
+      <h1>Cloud Photo Gallery</h1>
+      <p>Upload and view your photos stored in Supabase.</p>
+
+      <input
+        type="file"
+        accept="image/*"
+        onChange={uploadPhoto}
+        disabled={loading}
+      />
+
+      {loading && <p>Uploading photo...</p>}
+
+      <div className="gallery">
+        {photos.map((photo) => (
+          <div key={photo.name} className="photo-card">
+            <img src={photo.url} alt={photo.name} />
+          </div>
+        ))}
+      </div>
+    </main>
+  );
+}
 
 
 
@@ -27,15 +100,3 @@ const uploadPhoto = async (event) => {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-        

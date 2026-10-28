@@ -54,7 +54,7 @@ export default function App() {
       }
     }
 
-    setMessage('Photos uploaded successfully!');
+    setMessage('photos uploaded successfully!');
     event.target.value = '';
     await loadPhotos();
     setUploading(false);

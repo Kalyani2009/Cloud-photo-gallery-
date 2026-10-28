@@ -8,7 +8,7 @@ export default function App() {
 
   async function loadPhotos() {
     const { data, error } = await supabase.storage
-      .from('photos')
+      .from('P1hotos')
       .list('', { limit: 100 });
 
     if (error) {
@@ -20,7 +20,7 @@ export default function App() {
       .filter(file => file.name && !file.name.startsWith('.'))
       .map(file => {
         const { data } = supabase.storage
-          .from('photos')
+          .from('Photos')
           .getPublicUrl(file.name);
 
         return {
@@ -44,7 +44,7 @@ export default function App() {
       const filePath = `${Date.now()}-${safeName}`;
 
       const { error } = await supabase.storage
-        .from('photos')
+        .from('Photos')
         .upload(filePath, file);
 
       if (error) {

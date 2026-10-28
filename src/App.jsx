@@ -8,7 +8,7 @@ export default function App() {
 
   async function loadPhotos() {
     const { data, error } = await supabase.storage
-      .from('P1hotos')
+      .from('Photos')
       .list('', { limit: 100 });
 
     if (error) {

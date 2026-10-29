@@ -1,148 +1,155 @@
-import React, { useState, useEffect } from "react";
-import { supabase } from "./supabase";
-import "./App.css";
+
+import React, { useState, useEffect } from 'react';
+import supabase from './supabase';
 
 function App() {
-  const [file, setFile] = useState(null);
-  const [photos, setPhotos] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+const [selectedFile, setSelectedFile] = useState(null);
+const [photos, setPhotos] = useState([]);
+const [message, setMessage] = useState('');
 
-  const Photos= "photos";
+const Photos = 'Photos';
 
-  // Load uploaded photos
-  const fetchPhotos = async () => {
-    const { data, error } = await supabase.storage
-      .from("Photos")
-      .list("", {
-        limit: 100,
-        sortBy: { column: "created_at", order: "desc" },
-      });
+// Fetch photos from Supabase Storage
+const fetchPhotos = async () => {
+const { data, error } = await supabase.storage
+.from("Photos")
+.list('', {
+limit: 100,
+sortBy: { column: 'created_at', order: 'desc' }
+});
 
-    if (error) {
-      setMessage("Unable to load photos: " + error.message);
-      return;
-    }
+if (error) {
+  setMessage('Could not load photos: ' + error.message);
+  return;
+}
 
-    const imageFiles = (data || []).filter(
-      (item) => item.name && item.id
-    );
+const imageFiles = (data || []).filter(
+  file =>
+    file.name &&
+    file.name !== '.emptyFolderPlaceholder' &&
+    !file.name.startsWith('.')
+);
 
-    const photoList = imageFiles.map((item) => {
-      const { data: urlData } = supabase.storage
-        .from("Photos")
-        .getPublicUrl(item.name);
+const photoList = imageFiles.map(file => {
+  const { data: urlData } = supabase.storage
+    .from("Photos")
+    .getPublicUrl(file.name);
 
-      return {
-        name: item.name,
-        url: urlData.publicUrl,
-      };
-    });
-
-    setPhotos(photoList);
+  return {
+    name: file.name,
+    url: urlData.publicUrl
   };
+});
 
-  useEffect(() => {
-    fetchPhotos();
-  }, []);
+setPhotos(photoList);
 
-  // Upload a photo
-  const handleUpload = async () => {
-    if (!file) {
-      setMessage("Please select a photo first.");
-      return;
+};
+
+// Load photos when the website opens
+useEffect(() => {
+fetchPhotos();
+}, []);
+
+// Upload a photo
+const uploadPhoto = async () => {
+if (!selectedFile) {
+setMessage('Please select a photo first.');
+return;
+}
+
+setMessage('Uploading photo...');
+
+const fileName = `${Date.now()}-${selectedFile.name}`;
+
+const { error } = await supabase.storage
+  .from("Photos")
+  .upload(fileName, selectedFile, {
+    contentType: selectedFile.type,
+    upsert: false
+  });
+
+if (error) {
+  setMessage('Upload failed: ' + error.message);
+  return;
+}
+
+setMessage('Photo uploaded successfully!');
+setSelectedFile(null);
+
+await fetchPhotos();
+
+};
+
+return (
+<div
+style={{
+padding: '20px',
+fontFamily: 'Arial, sans-serif',
+maxWidth: '1000px',
+margin: '0 auto'
+}}
+>
+<h1>☁️ Cloud Photo Gallery</h1>
+
+  <p>Upload and view your photos stored in Supabase.</p>
+
+  <input
+    type="file"
+    accept="image/*"
+    onChange={event =>
+      setSelectedFile(event.target.files?.[0] || null)
     }
+  />
 
-    if (!file.type.startsWith("image/")) {
-      setMessage("Please select a valid image file.");
-      return;
-    }
+  <button
+    onClick={uploadPhoto}
+    style={{
+      marginLeft: '10px',
+      padding: '8px 14px',
+      cursor: 'pointer'
+    }}
+  >
+    Upload Photo
+  </button>
 
-    setLoading(true);
-    setMessage("");
+  {message && <p>{message}</p>}
 
-    const filePath = `${Date.now()}-${file.name.replace(
-      /[^a-zA-Z0-9._-]/g,
-      "_"
-    )}`;
+  <h2>My Photos</h2>
 
-    const { error } = await supabase.storage
-      .from("Photos")
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: file.type,
-      });
-
-    setLoading(false);
-
-    if (error) {
-      setMessage("Upload failed: " + error.message);
-      return;
-    }
-
-    setMessage("Photo uploaded successfully!");
-
-    setFile(null);
-
-    const input = document.getElementById("photo-input");
-    if (input) input.value = "";
-
-    await fetchPhotos();
-  };
-
-  return (
-    <div className="app">
-      <h1>☁️ Cloud Photo Gallery</h1>
-
-      <p>Upload and view your photos using Supabase Storage.</p>
-
-      <div className="upload-box">
-        <input
-          id="photo-input"
-          type="file"
-          accept="image/*"
-          onChange={(event) => setFile(event.target.files?.[0] || null)}
-        />
-
-        <button onClick={handleUpload} disabled={loading}>
-          {loading ? "Uploading..." : "Upload Photo"}
-        </button>
-      </div>
-
-      {message && <p>{message}</p>}
-
-      <h2>My Photos</h2>
-
-      {photos.length === 0 ? (
-        <p>No photos uploaded yet.</p>
-      ) : (
-        <div className="photo-grid">
-          {photos.map((photo) => (
-            <div className="photo-card" key={photo.name}>
-              <img src={photo.url} alt={photo.name} />
-              <p>{photo.name}</p>
-            </div>
-          ))}
+  {photos.length === 0 ? (
+    <p>No photos uploaded yet.</p>
+  ) : (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+        gap: '15px'
+      }}
+    >
+      {photos.map(photo => (
+        <div key={photo.name}>
+          <img
+            src={photo.url}
+            alt={photo.name}
+            style={{
+              width: '100%',
+              height: '180px',
+              objectFit: 'cover',
+              borderRadius: '8px'
+            }}
+          />
         </div>
-      )}
+      ))}
     </div>
-  );
+  )}
+</div>
+
+);
 }
 
 export default App;
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-      
+        
+  
